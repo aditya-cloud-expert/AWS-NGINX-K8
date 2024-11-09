@@ -1,35 +1,34 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// Connect to MongoDB
-mongoose.connect(`mongodb://${process.env.MONGO_USER}:${process.env.MONGO_PASS}@${process.env.MONGO_HOST}:${process.env.MONGO_PORT}/${process.env.MONGO_DB}`, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch((err) => console.error('Error connecting to MongoDB:', err));
+async function connectToMongoDB() {
+  try {
+    const client = await MongoClient.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    return client.db();
+  } catch (err) {
+    console.error('Error connecting to MongoDB:', err);
+    throw err;
+  }
+}
 
-// Define a simple User model
-const User = mongoose.model('User', { name: String, email: String });
-
-// Create a new user
-app.post('/users', async (req, res) => {
-  const { name, email } = req.body;
-  const user = new User({ name, email });
-  await user.save();
-  res.status(201).json(user);
-});
-
-// Get all users
 app.get('/users', async (req, res) => {
-  const users = await User.find();
-  res.json(users);
+  try {
+    const db = await connectToMongoDB();
+    const users = await db.collection('users').find({}).toArray();
+    res.json(users);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Error fetching users' });
+  }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
